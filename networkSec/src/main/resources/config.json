@@ -1,0 +1,6 @@
+{
+	"MAX_PASSWORD_HISTORY": 3,
+	"MAX_LOGIN_ATTEMPT": 3,
+	"SPECIAL_CHARACTERS": "!@#$%^&*()_-+=<>?",
+	"PASSWORD_LENGTH": 10
+}

@@ -19,9 +19,12 @@ import net.logic.PasswordManager;
 @Component
 public class Converter {
 	private ObjectMapper jackson;
-
-	public Converter() {
+	private final PasswordManager passwordManager;
+	
+	
+	public Converter(PasswordManager passwordManager) {
 		this.jackson = new ObjectMapper();
+		this.passwordManager = passwordManager;
 	}
 
 	public UserEntity toEntity(User boundary) throws NoSuchAlgorithmException, InvalidKeySpecException {
@@ -35,7 +38,7 @@ public class Converter {
 			entity.setUserName(boundary.getUserName());
 		}
 
-		if (!(PasswordManager.isPasswordComplex(boundary.getPassword()))) {
+		if (!(passwordManager.isPasswordComplex(boundary.getPassword()))) {
 			throw new BadRequestEx(
 					"Password must contain 10 character /n Atleast 1 special characther !@#$%^&*()_-+=<>?"
 							+ "/n atleast 1 uppercase,lowercase and number");

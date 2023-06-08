@@ -25,7 +25,13 @@ public class UserServiceRDB implements UserService {
 	private Crud userCrud;
 	private Converter converter;
 	private String nameFromSpringConfig;
-
+	private final PasswordManager passwordManager;
+	
+	@Autowired
+	public UserServiceRDB(PasswordManager passwordManager) {
+        this.passwordManager = passwordManager;
+    }
+	
 	@Autowired
 	public void setUserCrud(Crud userCrud) {
 		this.userCrud = userCrud;
@@ -89,7 +95,7 @@ public class UserServiceRDB implements UserService {
 			existing.setUserName(update.getUserName());
 		}
 
-		if (update.getPassword() == null || !(PasswordManager.isNewPasswordValid(existing, update.getPassword()))) {
+		if (update.getPassword() == null || !(passwordManager.isNewPasswordValid(existing, update.getPassword()))) {
 			throw new BadRequestEx("Password has been used before");
 		} else {
 			existing.setPassword(Hasher.hashPassword(update.getPassword()));
@@ -142,14 +148,21 @@ public class UserServiceRDB implements UserService {
 
 	@Override
 	@Transactional(readOnly = true)
-	public User getUserByName(String userName) {
+	public User login(String userName, String password) {
 		Optional<UserEntity> op = this.userCrud.findByUserName(userName);
 
 		if (op.isPresent()) {
 			UserEntity entity = op.get();
-			return this.converter.toBoundary(entity);
+			if (PasswordManager.isPasswordValid(entity, password)) {
+				return this.converter.toBoundary(entity);
+			} else {
+				passwordManager.LoginAttempts();
+				throw new RuntimeException("Could not find message by Password: " + password);
+			}
 		} else {
-			throw new BadRequestEx("Could not find message by User Name: " + userName);
+			passwordManager.LoginAttempts();
+			throw new RuntimeException("Could not find message by User Name: " + userName);
+
 		}
 	}
 

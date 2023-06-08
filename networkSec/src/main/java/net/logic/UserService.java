@@ -20,7 +20,7 @@ public interface UserService {
 
 	public User getUserById(String id);
 
-	public User getUserByName(String userName);
+	public User login(String userName,String password);
 	
 	 
 }

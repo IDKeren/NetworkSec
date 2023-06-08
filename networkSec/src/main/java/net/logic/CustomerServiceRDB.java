@@ -10,10 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.PostConstruct;
 import net.Converter;
 import net.boundaries.Customer;
-import net.boundaries.User;
+
 import net.dal.CustomerCrud;
 import net.data.CustomerEntity;
-import net.data.UserEntity;
+
 
 @Service
 public class CustomerServiceRDB implements CustomerService {

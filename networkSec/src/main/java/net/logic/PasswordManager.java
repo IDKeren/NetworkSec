@@ -1,72 +1,97 @@
 package net.logic;
 
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
 import java.util.Random;
 import net.data.UserEntity;
 
+@Component
 public class PasswordManager {
-	private static final int MAX_PASSWORD_HISTORY = 3;
 
-	private static final String SPECIAL_CHARACTERS = "!@#$%^&*()_-+=<>?";
-	private static final int LENGTH = 10;
 	private static final int MIN_UPPERCASE = 1;
 	private static final int MIN_LOWERCASE = 1;
 	private static final int MIN_DIGITS = 1;
 	private static final int MIN_SPECIAL_CHARACTERS = 1;
-
-	public static void isPasswordValid(String newPassword, ArrayList<String> passHistory)
-			throws NoSuchAlgorithmException, InvalidKeySpecException {
-		
-		if (passHistory.size() >= MAX_PASSWORD_HISTORY) {
-			passHistory.subList(passHistory.size() - MAX_PASSWORD_HISTORY, passHistory.size());
-			// Remove oldest password from history
-		}
-		
-		if (passHistory.contains(newPassword)) {
-			throw new BadRequestEx(" Password has been used before");
-			// Password has been used before
-		}
-
-		passHistory.add(newPassword); // Add new password to history
-
+	private static List<String> passwordHistory;
+	private static int loginAttempts;
+	private final ConfigReader configReader;
+	
+	@Autowired
+	public PasswordManager(ConfigReader configReader) {
+		this.configReader = configReader;
 	}
-	public static boolean isNewPasswordValid(UserEntity user, String newPassword) {
-        
-		List<String> passwordHistory = user.getPassHistory();
 
-        // Check if the new password is in the password history
-        if (passwordHistory.contains(newPassword)) {
-            return false;
-        }
+	public void LoginManager() {
+		loginAttempts = 0;
+	}
 
-        // Limit the password history to the last three passwords
-        if (passwordHistory.size() >= MAX_PASSWORD_HISTORY) {
-            passwordHistory = passwordHistory.subList(passwordHistory.size() - MAX_PASSWORD_HISTORY, passwordHistory.size());
-        }
+	public void LoginAttempts() {
+		Config config = configReader.getConfig();
+		int maxLoginAtmp = config.getMaxLoginAtempt();
+		if (loginAttempts >= maxLoginAtmp) {
+			throw new RuntimeException("Maximum login attempts reached "); // Maximum login attempts reached
+		} else
+			loginAttempts++;
+	}
 
-        // Add the new password to the password history
-        passwordHistory.add(newPassword);
+	public static boolean isPasswordValid(UserEntity user, String userPassowrd) {
 
-        // Update the user entity's password history
-        user.setPassHistory(passwordHistory);
+		passwordHistory = user.getPassHistory();
 
-        return true;
-    }
+		// Check if the user's password is in the correct password
+		if (passwordHistory.get(0).contentEquals(userPassowrd)) {
+			loginAttempts = 0;
+			return true;
+		} else
 
-	private boolean verifyPassword(String password, String hashedPassword) {
+			return false;
+	}
+
+	public boolean isNewPasswordValid(UserEntity user, String newPassword) {
+		Config config = configReader.getConfig();
+		int maxPasswordHis = config.getMaxPasswordHistory();
+		passwordHistory = user.getPassHistory();
+
+		// Check if the new password is in the password history
+		if (passwordHistory.contains(newPassword)) {
+			return false;
+		}
+
+		// Limit the password history to the last three passwords
+		if (passwordHistory.size() >= maxPasswordHis) {
+			passwordHistory = passwordHistory.subList(passwordHistory.size() - maxPasswordHis, passwordHistory.size());
+		}
+
+		// Add the new password to the password history
+		passwordHistory.add(newPassword);
+
+		// Update the user entity's password history
+		user.setPassHistory(passwordHistory);
+
+		return true;
+	}
+
+	private String sendCodeToEmail() {
+		int codeLength = 7;
+		String randomCode = UUID.randomUUID().toString().replaceAll("-", "").substring(0, codeLength);
+		String hashedCode = null;
 		try {
-			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			byte[] hashedBytes = digest.digest(password.getBytes());
-			String hashedPasswordAttempt = bytesToHex(hashedBytes);
-			return hashedPassword.equals(hashedPasswordAttempt);
+			MessageDigest sha1Digest = MessageDigest.getInstance("SHA-1");
+			byte[] codeBytes = randomCode.getBytes(StandardCharsets.UTF_8);
+			byte[] hashedBytes = sha1Digest.digest(codeBytes);
+			hashedCode = bytesToHexString(hashedBytes);
 		} catch (NoSuchAlgorithmException e) {
 			throw new RuntimeException("Error hashing password.", e);
 		}
+		return hashedCode;
 	}
 
 	public boolean isDictionaryWord(String password, Set<String> dictionary) {
@@ -81,7 +106,7 @@ public class PasswordManager {
 		return false; // Password does not contain any dictionary words
 	}
 
-	private String bytesToHex(byte[] bytes) {
+	private String bytesToHexString(byte[] bytes) {
 		StringBuilder sb = new StringBuilder();
 		for (byte b : bytes) {
 			sb.append(String.format("%02x", b));
@@ -89,8 +114,11 @@ public class PasswordManager {
 		return sb.toString();
 	}
 
-	public static boolean isPasswordComplex(String password) {
-		if (password.length() != LENGTH) {
+	public boolean isPasswordComplex(String password) {
+		Config config = configReader.getConfig();
+		int length = config.getPasswordLength();
+		String specialCharacters = config.getSpecialCharacters();
+		if (password.length() != length) {
 			return false; // Password is not in length
 		}
 
@@ -106,7 +134,7 @@ public class PasswordManager {
 				lowercaseCount++;
 			} else if (Character.isDigit(c)) {
 				digitCount++;
-			} else if (SPECIAL_CHARACTERS.contains(String.valueOf(c))) {
+			} else if (specialCharacters.contains(String.valueOf(c))) {
 				specialCharacterCount++;
 			}
 		}
@@ -114,27 +142,27 @@ public class PasswordManager {
 		return uppercaseCount >= MIN_UPPERCASE && lowercaseCount >= MIN_LOWERCASE && digitCount >= MIN_DIGITS
 				&& specialCharacterCount >= MIN_SPECIAL_CHARACTERS;
 	}
-	
-	
-	    public static String generateLineCodeId() {
-	        // Define the maximum length of the line of code ID
-	        int maxLength = 10;
-	        
-	        // Create a StringBuilder to store the generated ID
-	        StringBuilder lineCodeId = new StringBuilder();
-	        
-	        // Create an instance of Random
-	        Random random = new Random();
-	        
-	        // Generate random digits until the desired length is reached
-	        while (lineCodeId.length() < maxLength) {
-	            // Generate a random digit (0-9)
-	            int digit = random.nextInt(10);
-	            
-	            // Append the digit to the line of code ID
-	            lineCodeId.append(digit);
-	        }
-	        
-	        return lineCodeId.toString();
-	    }
+
+	public static String generateLineCodeId() {
+		// Define the maximum length of the line of code ID
+		int maxLength = 10;
+
+		// Create a StringBuilder to store the generated ID
+		StringBuilder lineCodeId = new StringBuilder();
+
+		// Create an instance of Random
+		Random random = new Random();
+
+		// Generate random digits until the desired length is reached
+		while (lineCodeId.length() < maxLength) {
+			// Generate a random digit (0-9)
+			int digit = random.nextInt(10);
+
+			// Append the digit to the line of code ID
+			lineCodeId.append(digit);
+		}
+
+		return lineCodeId.toString();
+	}
+
 }

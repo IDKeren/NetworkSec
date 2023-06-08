@@ -14,7 +14,7 @@ import net.logic.CustomerService;
 
 
 @RestController
-@CrossOrigin(origins = "https://localhost:3000")
+@CrossOrigin
 public class CustomerController {
 
     private CustomerService customers;

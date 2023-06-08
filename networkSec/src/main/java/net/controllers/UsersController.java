@@ -15,7 +15,7 @@ import net.boundaries.User;
 import net.logic.UserService;
 
 @RestController
-@CrossOrigin(origins = "https://localhost:3000")
+@CrossOrigin
 public class UsersController {
 	private UserService users;
 
@@ -31,7 +31,6 @@ public class UsersController {
 			consumes = { MediaType.APPLICATION_JSON_VALUE }
 			)
 	public User createUser(@RequestBody User user) throws NoSuchAlgorithmException, InvalidKeySpecException {
-		
 		return this.users.addToDb(user);
 	}
 
@@ -64,9 +63,9 @@ public class UsersController {
 		return this.users.getUserById(id);
 	}
 	
-	@RequestMapping(path = { "/users/byName/{userName}" }, method = { RequestMethod.GET }, produces = {
+	@RequestMapping(path = { "/users/login/{userName},{password}" }, method = { RequestMethod.GET }, produces = {
 			MediaType.APPLICATION_JSON_VALUE })
-	public User getByName(@PathVariable("userName") String userName) {
-		return this.users.getUserByName(userName);
+	public User userLogin(@PathVariable("userName") String userName,@PathVariable("password") String password) {
+		return this.users.login(userName,password);
 	}
 }
